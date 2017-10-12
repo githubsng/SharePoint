@@ -1,0 +1,92 @@
+<!-- Create your own style -->
+<link rel="stylesheet" type="text/css" href="../homepagealerts.css">
+<script type="text/javascript">
+
+  function queryListItems() {  
+
+
+      var context = new SP.ClientContext();  
+      // Get the list items from an Announcement App e.g. called 'Alerts'
+      var list = context.get_web().get_lists().getByTitle('Alerts');  
+      var caml = new SP.CamlQuery();
+
+      // Set a Expires column in the filter view options set to is greater than or equal to [Today]+1
+      caml.set_viewXml("<View>"+
+                        "<Query>"+
+                          "<Where>"+
+                           "<Geq>"+
+                              "<FieldRef Name='Expires'/>"+
+                              "<Value Type='DateTime'>"+                              
+                                  "<Today OffsetDays='1'/>"+
+                              "</Value>"+
+                            "</Geq>"+
+                            "</Where>"+
+                            "<OrderBy>"+
+                              "<FieldRef Name='Created' Ascending='FALSE' />"+
+                            "</OrderBy>"+
+                        "</Query>"+
+                      "</View>");
+
+       returnedItems = list.getItems(caml);
+       // Can also create categories for alerts - high, low, information, event types, etc
+       context.load(returnedItems, 'Include(Title,Category,ID)'); 
+       context.executeQueryAsync(onSucceededCallback, onFailedCallback);
+    }  
+  
+    function onSucceededCallback(sender, args) {
+
+        var enumerator = returnedItems.getEnumerator();
+    
+        var markup = '';
+        var final = '';
+        final += '<a href="[YOURDOMAIN]/Lists/Alerts].aspx"><span><h2>Alerts</h2><span></a>';
+       
+        while (enumerator.moveNext()) {  
+            
+          var listItem = enumerator.get_current();
+          markup += '<div class="alert_item">';
+          markup += '<a href="' + '[YOURDOMAIN.listform.url]' + listItem.get_item('ID') + 'ContentTypeID.url">';
+          
+          // import your own icons
+          if (listItem.get_item('Category').match("Information")) {
+            markup += '<div class="alert_info">';
+            markup += '<img src="[YOURDOMAIN].information.ico">';
+          } else if (listItem.get_item('Category').match("Event")) {
+            markup += '<div class="alert_event">';
+            markup += '<img src="[YOURDOMAIN].event.ico">';        
+          } else if (listItem.get_item('Category').match("High")) {
+            markup += '<div class="alert_high">';
+            markup += '<img src="[YOURDOMAIN].high.ico">';
+          } else {
+            markup += '<div class="alert_low">';
+            markup += '<img src="[YOURDOMAIN].low.ico">';
+          }
+            markup += '<p>' + listItem.get_item('Title') + '</p>';
+            markup += '</div></a></div>';            
+        }
+        markup += '<br>';
+
+        // Greater than 4 represents length of '<br>' above.
+        if(markup.length > 4) {
+            final += markup;
+            homealerts_container.innerHTML = '';
+            homealerts_container.innerHTML += final;
+        } else {
+            homealerts_container.innerHTML = '';
+        }
+    }
+
+    function onFailedCallback(sender, args) {  
+        var markup = '<p>The request failed: <br>';  
+        markup += 'Message: ' + args.get_message() + '<br>';
+        homealerts_container.innerHTML = markup;  
+    } 
+
+
+    $(document).ready(function(){
+      queryListItems();
+    });
+
+</script>
+
+<div class="homealerts_container" id="homealerts_container"></div>
