@@ -1,0 +1,160 @@
+<!--
+An embedded JS webpart to display upcoming events from a SharePoint Calendar Object
+-->
+
+<!-- Styling -->
+<link rel="stylesheet" type="text/css" href="../upcomingevents.css">
+<!-- Scripts and Dependencies  -->
+<script type="text/javascript" src="/.../sp.runtime.js"></script>
+<script type="text/javascript" src="/.../sp.js"></script>
+
+<script type="text/javascript">
+ 
+  function formatAMPM(date) {
+    var hours = date.getHours();
+    var mins = date.getMinutes();
+    var str_mins;
+    var ampm;
+    if (hours >= 12) {
+      ampm = 'pm';
+    } else {
+      ampm = 'am';
+    }
+    hours = hours % 12;
+    if (hours == 0) {
+      hours = 12;
+    }
+    if (mins < 10) {
+      str_mins = '0' + mins.toString();
+    } else {
+      str_mins = mins.toString();
+    }
+    var timemessage = hours.toString() + ':' + str_mins + ' ' + ampm;
+    return timemessage;
+  }
+  
+  
+  function queryListItems() { 
+ 
+      // Create the Context
+      var context = new SP.ClientContext(); 
+
+      // Get the Calendar
+      var list = context.get_web().get_lists().getByTitle('Name_of_Calendar'); 
+      
+      // Create CAML Query
+      var caml = new SP.CamlQuery();
+
+      // Query limits 5 results, orders by ascending dates, 
+      caml.set_viewXml("<View><Query>"+
+                              "<OrderBy><FieldRef Name='EventDate'/></OrderBy>"+
+                            "<Where>"+
+                              "<And>"+
+                                "<DateRangesOverlap>"+
+                                  "<FieldRef Name='EventDate'/><FieldRef Name='EndDate'/><FieldRef Name='RecurrenceID'/><Value Type='DateTime'><Now/></Value>"+
+                                "</DateRangesOverlap>"+
+                                  "<Neq><FieldRef Name='Title'/><Value Type='Text'>DonotDisplayTheseItems</Value></Neq>"+
+                              "</And>"+
+                            "</Where>"+
+                              "</Query>"+
+                                  "<RowLimit>5</RowLimit>"+
+                          "</View>");
+ 
+       // returned results of query
+       returnedItems = list.getItems(caml);
+
+       // included fields in the query
+       context.load(returnedItems, 'Include(EventDate,Title,Category,ID,Location,EndDate)');       
+       context.executeQueryAsync(onSucceededCallback, onFailedCallback);
+    }
+ 
+ 
+    function onSucceededCallback(sender, args) {
+ 
+        var enumerator = returnedItems.getEnumerator();
+        var markup = '';
+        var final = '';
+        final += '<a href="https://[YourSharePointDomain]/Lists/Name_of_Calendar">All Events [+]</a><br><br>'+
+                 '<div class="module"><a href="https://[YourSharePointDomain]/Lists/Name_of_Calendar.aspx">'+
+                 '<h3>Upcoming Events</h3></a></div>';       
+        var counter = 0;
+       
+        while (enumerator.moveNext()) { 
+            
+          var listItem = enumerator.get_current();
+              var startdatetime = listItem.get_item('EventDate');
+              var enddatetime = listItem.get_item('EndDate');
+         
+            markup += '<div class="event_item" title="'+listItem.get_item('Category')+'\n'+listItem.get_item('Title')+'\n'+formatAMPM(startdatetime)+' - '+formatAMPM(enddatetime)+'\n'+listItem.get_item('Location')+'">';
+ 
+            markup += '<a href="' + 'https://[YourSharePointDomain/listform.url]' + listItem.get_item('ID') + '...[ContentTypeIDurl]">';
+ 
+              markup += '<div class="eventdate_container">';
+               
+                markup += '<div class="eventdate_day">';
+                markup += listItem.get_item('EventDate').toString().slice(0,3);
+                markup += '</div>';
+ 
+                markup += '<div class="eventdate_date">';
+                markup += listItem.get_item('EventDate').toString().slice(8,10);
+                markup += '</div>';             
+ 
+                markup += '<div class="eventdate_month">';
+                markup += listItem.get_item('EventDate').toString().slice(4,7);
+                markup += '</div>';             
+ 
+              markup += '</div>';
+ 
+              // White
+              if(counter%2){
+                markup += '<div class="event_item_contents" style="border-top: 1px solid #ededed; border-bottom: 1px solid #ededed; border-right: 1px solid #ededed">';
+              // Light-Grey
+              } else {
+                markup += '<div class="event_item_contents" style="background-color:#ededed">';
+              }
+ 
+              // Add title to the list
+              if (listItem.get_item('Title').length > 30) {
+                markup += '<p>' + listItem.get_item('Title').substring(0,36) + '...' + '</p>';
+              } else {
+                markup += '<p>' + listItem.get_item('Title') + '</p>';
+              }
+              // Note: requires a Category field containing 'Holiday' item as an example
+              if (listItem.get_item('Category').match("Holiday")) {
+                markup += '<p>Holiday</p>';
+              }
+              else {
+                markup += '<p>'+ formatAMPM(startdatetime) + ' - ' + formatAMPM(enddatetime) + '</p>';
+              }
+              markup += '</div>';
+ 
+            markup += '</a>';
+          markup += '</div>';
+ 
+          counter++;
+        }
+        markup += '<br>';
+ 
+            final += markup;
+            upcomingevents_container.innerHTML = '';
+            upcomingevents_container.innerHTML += final;
+    }
+ 
+    // if Query fails
+    function onFailedCallback(sender, args) { 
+        var markup = '<p>The request failed: <br>'; 
+        markup += 'Message: ' + args.get_message() + '<br>';
+        upcomingevents_container.innerHTML = markup; 
+    }
+ 
+    
+    $(document).ready(function(){
+      queryListItems();
+    });
+ 
+ 
+</script>
+<div class="upcomingevents_container" id="upcomingevents_container">
+</div>
+ 
+ 
